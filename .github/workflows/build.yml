@@ -10,188 +10,35 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
-      # ============================================================
-      # 1. Checkout repository
-      # ============================================================
       - name: Checkout repository
         uses: actions/checkout@v4
 
-
-      # ============================================================
-      # 2. Java 17
-      # AGP 8.2 requires JDK 17.
-      # ============================================================
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: temurin
 
-      - name: Verify Java
-        run: |
-          java -version
-
-
-      # ============================================================
-      # 3. Android SDK
-      # ============================================================
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK packages
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-34" \
-            "build-tools;34.0.0"
-
-
-      # ============================================================
-      # 4. Install useful media inspection tool
-      # ============================================================
-      - name: Install FFmpeg
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-
-
-      # ============================================================
-      # 5. Create Android project directories
-      # ============================================================
       - name: Create project directories
         run: |
-          mkdir -p app/src/main/java/com/srxsaladio7/ngtrcustomlivewallpaper03
+          mkdir -p app/src/main/java/com/srxsaladio7/ngtrcustomlivewallpaper
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/xml
           mkdir -p app/src/main/res/raw
 
-
-      # ============================================================
-      # 6. Verify GTR video exists
-      # ============================================================
       - name: Verify Nissan GTR video
         run: |
           if [ ! -f "nissan_gtr.mp4" ]; then
             echo "ERROR: nissan_gtr.mp4 was not found in repository root."
-            echo ""
-            echo "Expected:"
-            echo "  nissan_gtr.mp4"
             exit 1
           fi
-
           echo "Nissan GTR video found."
           ls -lh nissan_gtr.mp4
 
-
-      # ============================================================
-      # 7. Inspect video
-      # ============================================================
-      - name: Inspect GTR video
-        run: |
-          echo "=================================================="
-          echo "Nissan GTR video information"
-          echo "=================================================="
-
-          ffprobe \
-            -v error \
-            -show_entries \
-            stream=index,codec_name,codec_type,width,height,r_frame_rate,avg_frame_rate,pix_fmt \
-            -show_entries \
-            format=duration,size,format_name \
-            -of default=noprint_wrappers=1 \
-            nissan_gtr.mp4
-
-          echo ""
-          echo "=================================================="
-          echo "Frame-rate check"
-          echo "=================================================="
-
-          FPS=$(ffprobe \
-            -v error \
-            -select_streams v:0 \
-            -show_entries stream=avg_frame_rate \
-            -of csv=p=0 \
-            nissan_gtr.mp4)
-
-          echo "Detected average frame rate: $FPS"
-
-          if [ "$FPS" = "30/1" ] || [ "$FPS" = "30/30" ]; then
-            echo "30 FPS source confirmed."
-          else
-            echo "WARNING: Source is not exactly 30 FPS."
-            echo "The build will continue, but we should optimize the video later."
-          fi
-
-
-      # ============================================================
-      # 8. Copy GTR video into raw resources
-      # ============================================================
       - name: Copy Nissan GTR video
         run: |
-          cp nissan_gtr.mp4 \
-            app/src/main/res/raw/nissan_gtr.mp4
+          cp nissan_gtr.mp4 app/src/main/res/raw/nissan_gtr.mp4
 
-
-      # ============================================================
-      # 9. settings.gradle
-      # ============================================================
-      - name: Write settings.gradle
-        run: |
-          cat > settings.gradle <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-
-          rootProject.name = "Custom-Live-syst-wallpaper-03"
-
-          include(":app")
-          EOF
-
-
-      # ============================================================
-      # 10. Root build.gradle
-      # ============================================================
-      - name: Write root build.gradle
-        run: |
-          cat > build.gradle <<'EOF'
-          plugins {
-              id 'com.android.application' version '8.2.2' apply false
-          }
-          EOF
-
-
-      # ============================================================
-      # 11. gradle.properties
-      # ============================================================
-      - name: Write gradle.properties
-        run: |
-          cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          org.gradle.daemon=false
-          org.gradle.parallel=false
-          android.useAndroidX=false
-          EOF
-
-
-      # ============================================================
-      # Generate signing keystore for this test build
-      # ============================================================
       - name: Generate signing keystore
         run: |
           keytool -genkeypair -v \
@@ -206,28 +53,59 @@ jobs:
             -dname "CN=CustomLiveWallpaper03, OU=Wallpaper, O=SrXSaladio7, C=BD" \
             -noprompt
 
-            
-      # ============================================================
-      # 12. app/build.gradle
-      # ============================================================
+      - name: Write settings.gradle
+        run: |
+          cat > settings.gradle <<'GRADLE'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "Custom-Live-syst-wallpaper-03"
+          include(":app")
+          GRADLE
+
+      - name: Write root build.gradle
+        run: |
+          cat > build.gradle <<'GRADLE'
+          plugins {
+              id 'com.android.application' version '8.2.2' apply false
+          }
+          GRADLE
+
+      - name: Write gradle.properties
+        run: |
+          cat > gradle.properties <<'GRADLE'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          org.gradle.daemon=false
+          org.gradle.parallel=false
+          android.useAndroidX=true
+          GRADLE
+
       - name: Write app/build.gradle
         run: |
-          cat > app/build.gradle <<'EOF'
+          cat > app/build.gradle <<'GRADLE'
           plugins {
               id 'com.android.application'
           }
 
           android {
-              namespace "com.srxsaladio7.ngtrcustomlivewallpaper03"
-
+              namespace "com.srxsaladio7.ngtrcustomlivewallpaper"
               compileSdk 34
 
               defaultConfig {
-                  applicationId "com.srxsaladio7.ngtrcustomlivewallpaper03"
-
+                  applicationId "com.srxsaladio7.ngtrcustomlivewallpaper"
                   minSdk 21
                   targetSdk 22
-
                   versionCode 1
                   versionName "1.0"
               }
@@ -243,52 +121,41 @@ jobs:
                       storePassword "gtr_test_store_pass"
                       keyAlias "gtr_test_key"
                       keyPassword "gtr_test_key_pass"
-
-                      enableV1Signing true
-                      enableV2Signing false
+                      v1SigningEnabled true
+                      v2SigningEnabled true
                   }
-              }    
+              }
 
               buildTypes {
                   release {
                       signingConfig signingConfigs.release
                       minifyEnabled false
                       shrinkResources false
-                   }
-               }    
+                  }
+              }
 
               compileOptions {
                   sourceCompatibility JavaVersion.VERSION_1_8
                   targetCompatibility JavaVersion.VERSION_1_8
               }
 
-              /*
-               * Do not recompress MP4.
-               * The video is already a compressed media container.
-               */
-              aaptOptions {
-                  noCompress "mp4"
+              androidResources {
+                  noCompress 'mp4'
               }
           }
-          EOF
+          GRADLE
 
-
-      # ============================================================
-      # 13. AndroidManifest.xml
-      #
-      # IMPORTANT:
-      # There is deliberately NO MAIN/LAUNCHER activity.
-      # This package exists as a Live Wallpaper provider.
-      # ============================================================
       - name: Write AndroidManifest.xml
         run: |
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          cat > app/src/main/AndroidManifest.xml <<'XML'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
               <uses-feature
                   android:name="android.software.live_wallpaper"
                   android:required="true" />
+
+              <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
               <application
                   android:allowBackup="false"
@@ -298,6 +165,7 @@ jobs:
 
                   <service
                       android:name=".GtrWallpaperService"
+                      android:enabled="true"
                       android:exported="true"
                       android:label="@string/wallpaper_name"
                       android:permission="android.permission.BIND_WALLPAPER">
@@ -315,64 +183,32 @@ jobs:
               </application>
 
           </manifest>
-          EOF
+          XML
 
-
-      # ============================================================
-      # 14. strings.xml
-      # ============================================================
       - name: Write strings.xml
         run: |
-          cat > app/src/main/res/values/strings.xml <<'EOF'
+          cat > app/src/main/res/values/strings.xml <<'XML'
           <?xml version="1.0" encoding="utf-8"?>
-
           <resources>
-
-              <string name="app_name">
-                   CustomLiveWallpaper03
-              </string>
-
-              <string name="wallpaper_name">
-                  Nissan GTR
-              </string>
-
-              <string name="wallpaper_description">
-                  Nissan GTR Cool Live Wallpaper
-              </string>
-
+              <string name="app_name">CustomLiveWallpaper-03</string>
+              <string name="wallpaper_name">Nissan GTR</string>
+              <string name="wallpaper_description">Nissan GTR Cool Live Wallpaper</string>
           </resources>
-          EOF
+          XML
 
-
-      # ============================================================
-      # 15. Wallpaper metadata
-      # ============================================================
       - name: Write wallpaper metadata
         run: |
-          cat > app/src/main/res/xml/gtr_wallpaper.xml <<'EOF'
+          cat > app/src/main/res/xml/gtr_wallpaper.xml <<'XML'
           <?xml version="1.0" encoding="utf-8"?>
-
           <wallpaper
               xmlns:android="http://schemas.android.com/apk/res/android"
               android:description="@string/wallpaper_description" />
-          EOF
+          XML
 
-
-      # ============================================================
-      # 16. GTR WallpaperService
-      #
-      # API-22-safe implementation:
-      # - WallpaperService
-      # - MediaPlayer
-      # - Surface output
-      # - Visibility pause/resume
-      # - Resource release
-      # - No modern APIs
-      # ============================================================
       - name: Write GtrWallpaperService.java
         run: |
-          cat > app/src/main/java/com/srxsaladio7/ngtrcustomlivewallpaper03/GtrWallpaperService.java <<'EOF'
-          package com.srxsaladio7.ngtrcustomlivewallpaper03;
+          cat > app/src/main/java/com/srxsaladio7/ngtrcustomlivewallpaper/GtrWallpaperService.java <<'JAVA'
+          package com.srxsaladio7.ngtrcustomlivewallpaper;
 
           import android.media.MediaPlayer;
           import android.service.wallpaper.WallpaperService;
@@ -386,25 +222,18 @@ jobs:
               }
 
               private final class GtrEngine extends Engine {
-
                   private MediaPlayer mediaPlayer;
                   private boolean visible;
 
                   @Override
                   public void onCreate(SurfaceHolder holder) {
                       super.onCreate(holder);
-
-                      /*
-                       * First GTR build:
-                       * no touch processing yet.
-                       */
                       setTouchEventsEnabled(false);
                   }
 
                   @Override
                   public void onVisibilityChanged(boolean visible) {
                       this.visible = visible;
-
                       if (visible) {
                           startPlayback();
                       } else {
@@ -415,9 +244,7 @@ jobs:
                   @Override
                   public void onSurfaceCreated(SurfaceHolder holder) {
                       super.onSurfaceCreated(holder);
-
                       createPlayer(holder);
-
                       if (visible) {
                           startPlayback();
                       }
@@ -429,7 +256,6 @@ jobs:
                           int format,
                           int width,
                           int height) {
-
                       super.onSurfaceChanged(
                               holder,
                               format,
@@ -440,204 +266,111 @@ jobs:
 
                   @Override
                   public void onSurfaceDestroyed(SurfaceHolder holder) {
-
                       pausePlayback();
                       releasePlayer();
-
                       super.onSurfaceDestroyed(holder);
                   }
 
                   @Override
                   public void onDestroy() {
-
                       pausePlayback();
                       releasePlayer();
-
                       super.onDestroy();
                   }
 
                   private void createPlayer(SurfaceHolder holder) {
-
                       if (mediaPlayer != null) {
                           return;
                       }
-
                       try {
-
                           int videoId = getResources().getIdentifier(
                                   "nissan_gtr",
                                   "raw",
                                   getPackageName()
                           );
-
                           if (videoId == 0) {
                               return;
                           }
-
                           mediaPlayer = MediaPlayer.create(
                                   GtrWallpaperService.this,
                                   videoId
                           );
-
                           if (mediaPlayer == null) {
                               return;
                           }
-
-                          /*
-                           * Continuous wallpaper loop.
-                           */
                           mediaPlayer.setLooping(true);
-
-                          /*
-                           * Never keep the phone screen awake just
-                           * because the wallpaper is playing.
-                           */
                           mediaPlayer.setScreenOnWhilePlaying(false);
-
-                          /*
-                           * Send decoded video directly to the
-                           * wallpaper surface.
-                           */
                           mediaPlayer.setSurface(holder.getSurface());
-
-                          /*
-                           * If the legacy decoder cannot handle the
-                           * media, release it cleanly instead of
-                           * taking down the wallpaper service.
-                           */
+                          mediaPlayer.setVolume(0.0f, 0.0f);
                           mediaPlayer.setOnErrorListener(
                                   new MediaPlayer.OnErrorListener() {
-
                                       @Override
                                       public boolean onError(
                                               MediaPlayer mp,
                                               int what,
                                               int extra) {
-
                                           releasePlayer();
-
                                           return true;
                                       }
                                   }
                           );
-
                       } catch (RuntimeException e) {
-
                           releasePlayer();
                       }
                   }
 
                   private void startPlayback() {
-
                       if (mediaPlayer == null) {
                           return;
                       }
-
                       try {
-
                           if (!mediaPlayer.isPlaying()) {
                               mediaPlayer.start();
                           }
-
                       } catch (IllegalStateException ignored) {
                       }
                   }
 
                   private void pausePlayback() {
-
                       if (mediaPlayer == null) {
                           return;
                       }
-
                       try {
-
                           if (mediaPlayer.isPlaying()) {
                               mediaPlayer.pause();
                           }
-
                       } catch (IllegalStateException ignored) {
                       }
                   }
 
                   private void releasePlayer() {
-
                       if (mediaPlayer == null) {
                           return;
                       }
-
                       try {
                           mediaPlayer.reset();
                       } catch (IllegalStateException ignored) {
                       }
-
                       try {
                           mediaPlayer.release();
                       } catch (Exception ignored) {
                       }
-
                       mediaPlayer = null;
                   }
               }
           }
-          EOF
+          JAVA
 
-
-      # ============================================================
-      # 17. Set up Gradle 8.2
-      # ============================================================
       - name: Set up Gradle 8.2
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.2
 
-
-      - name: Verify Gradle
-        run: |
-          gradle --version
-
-
-      # ============================================================
-      # 18. Build release APK
-      # ============================================================
       - name: Build release APK
         run: |
           gradle clean :app:assembleRelease --stacktrace
 
-
-      # ============================================================
-      # 19. Verify generated APK
-      # ============================================================
-      - name: Verify APK
-        run: |
-          APK_PATH="app/build/outputs/apk/release/app-release.apk"
-
-          if [ ! -f "$APK_PATH" ]; then
-              echo "ERROR: APK was not generated."
-              exit 1
-          fi
-
-          echo "=============================================="
-          echo "Nissan GTR Live Wallpaper APK"
-          echo "=============================================="
-
-          ls -lh "$APK_PATH"
-
-          echo ""
-          echo "APK package/resource checks:"
-          unzip -l "$APK_PATH" | grep -E \
-            'AndroidManifest.xml|nissan_gtr.mp4|GtrWallpaperService|classes.dex' \
-            || true
-
-          echo ""
-          echo "Native libraries:"
-          unzip -l "$APK_PATH" | grep -E 'lib/.*\.so' \
-            || echo "No native libraries."
-
-
-      # ============================================================
-      # 20. Upload APK
-      # ============================================================
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: CustomLiveWallpaper-03
